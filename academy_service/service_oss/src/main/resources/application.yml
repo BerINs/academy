@@ -16,7 +16,7 @@ spring:
 
 aliyun:
   oss:
-    endpoint: oss-cn-beijing.aliyuncs.com
-    keyid: LTAI5tNYzAgW4x76rgY3v1cx
-    keysecret: JDiTwfRmpvxruuCoEf4yIIIQofsTy4
-    bucketname: academy-peaches
+    endpoint: x
+    keyid: x
+    keysecret: xxxxx
+    bucketname: xxxxxx
