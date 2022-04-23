@@ -2,7 +2,10 @@ package io.peaches.academy.service.edu.mapper;
 
 import io.peaches.academy.service.edu.entity.Subject;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import io.peaches.academy.service.edu.entity.vo.SubjectVO;
 import org.apache.ibatis.annotations.Mapper;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +18,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface SubjectMapper extends BaseMapper<Subject> {
 
+    List<SubjectVO> selectNestedListByParentId(String s);
 }

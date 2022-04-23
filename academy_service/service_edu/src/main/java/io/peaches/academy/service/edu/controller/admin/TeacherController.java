@@ -10,7 +10,6 @@ import io.peaches.academy.service.edu.feign.OssFileService;
 import io.peaches.academy.service.edu.service.TeacherService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,7 +22,7 @@ import java.util.Map;
  * </p>
  *
  * @author 作者
- * @since 2022-02-09
+ * @since 2022-02-09,.,
  */
 @CrossOrigin
 @Api(tags = "讲师管理")
