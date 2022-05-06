@@ -1,15 +1,23 @@
 package io.peaches.academy.service.edu.service.impl;
 
-import io.peaches.academy.service.edu.entity.Course;
-import io.peaches.academy.service.edu.entity.CourseDescription;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import io.peaches.academy.common.base.result.R;
+import io.peaches.academy.service.edu.entity.*;
 import io.peaches.academy.service.edu.entity.form.CourseInfoForm;
-import io.peaches.academy.service.edu.mapper.CourseDescriptionMapper;
-import io.peaches.academy.service.edu.mapper.CourseMapper;
+import io.peaches.academy.service.edu.entity.vo.*;
+import io.peaches.academy.service.edu.feign.OssFileService;
+import io.peaches.academy.service.edu.mapper.*;
 import io.peaches.academy.service.edu.service.CourseService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
 
 /**
  * <p>
@@ -23,7 +31,20 @@ import org.springframework.stereotype.Service;
 public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> implements CourseService {
 
     @Autowired
+    private OssFileService ossFileService;
+
+    @Autowired
+    private VideoMapper videoMapper;
+    @Autowired
+    private ChapterMapper chapterMapper;
+    @Autowired
+    private CommentMapper commentMapper;
+    @Autowired
+    private CourseCollectMapper courseCollectMapper;
+    @Autowired
     private CourseDescriptionMapper courseDescriptionMapper;
+    @Autowired
+    private CourseMapper courseMapper;
 
     @Override
     public String saveCourseInfo(CourseInfoForm courseInfoForm) {
@@ -75,5 +96,159 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
         courseDescription.setDescription(courseInfoForm.getDescription());
         courseDescription.setId(courseInfoForm.getId());
         courseDescriptionMapper.updateById(courseDescription);
+    }
+
+    @Override
+    public IPage<CourseVO> selectPage(Long page, Long limit, CourseQueryVO courseQueryVo) {
+
+        //组装查询条件
+        QueryWrapper<CourseVO> queryWrapper = new QueryWrapper<>();
+        queryWrapper.orderByDesc("c.gmt_create");
+
+        String title = courseQueryVo.getTitle();
+        String teacherId = courseQueryVo.getTeacherId();
+        String subjectParentId = courseQueryVo.getSubjectParentId();
+        String subjectId = courseQueryVo.getSubjectId();
+
+        if(!StringUtils.isEmpty(title)){
+            queryWrapper.like("c.title", title);
+        }
+
+        if(!StringUtils.isEmpty(teacherId)){
+            queryWrapper.eq("c.teacher_id", teacherId);
+        }
+
+        if(!StringUtils.isEmpty(subjectParentId)){
+            queryWrapper.eq("c.subject_parent_id", subjectParentId);
+        }
+
+        if(!StringUtils.isEmpty(subjectId)){
+            queryWrapper.eq("c.subject_id", subjectId);
+        }
+
+        //组装分页
+        Page<CourseVO> pageParam = new Page<>(page, limit);
+
+        //执行分页查询
+        //只需要在mapper层传入封装好的分页组件即可，sql分页条件组装的过程由mp自动完成
+        List<CourseVO> records = baseMapper.selectPageByCourseQueryVO(pageParam, queryWrapper);
+        //将records设置到pageParam中
+        return pageParam.setRecords(records);
+    }
+
+    @Override
+    public boolean removeCoverById(String id) {
+        //根据id获取讲师avatar 的 url
+        Course course = baseMapper.selectById(id);
+        if(course != null){
+            String cover = course.getCover();
+            if(!StringUtils.isEmpty(cover)){
+                R r = ossFileService.removeFile(cover);
+                return r.getSuccess();
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 数据库中外键约束的设置：
+     *   互联网分布式项目中不允许使用外键与级联更新，一切设计级联的操作不要依赖数据库层，要在业务层解决
+     *
+     * 如果业务层解决级联删除功能
+     *   那么先删除子表数据，再删除父表数据
+
+     * @param id
+     * @return
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public boolean removeCourseById(String id) {
+
+        //根据courseId删除Video(课时)
+        QueryWrapper<Video> videoQueryWrapper = new QueryWrapper<>();
+        videoQueryWrapper.eq("course_id", id);
+        videoMapper.delete(videoQueryWrapper);
+
+        //根据courseId删除Chapter(章节)
+        QueryWrapper<Chapter> chapterQueryWrapper = new QueryWrapper<>();
+        chapterQueryWrapper.eq("course_id", id);
+        chapterMapper.delete(chapterQueryWrapper);
+
+        //根据courseId删除Comment(评论)
+        QueryWrapper<Comment> commentQueryWrapper = new QueryWrapper<>();
+        commentQueryWrapper.eq("course_id", id);
+        commentMapper.delete(commentQueryWrapper);
+
+        //根据courseId删除CourseCollect(课程收藏)
+        QueryWrapper<CourseCollect> courseCollectQueryWrapper = new QueryWrapper<>();
+        courseCollectQueryWrapper.eq("course_id", id);
+        courseCollectMapper.delete(courseCollectQueryWrapper);
+
+        //根据courseId删除CourseDescription(课程详情)
+        courseDescriptionMapper.deleteById(id);
+
+        //删除课程
+        return this.removeById(id);
+    }
+
+    @Override
+    public CoursePublishVO getCoursePublishVoById(String id) {
+        return baseMapper.selectCoursePublishVoById(id);
+    }
+
+    @Override
+    public boolean publishCourseById(String id) {
+        Course course = new Course();
+        course.setId(id);
+        course.setStatus(Course.COURSE_NORMAL);
+        return this.updateById(course);
+    }
+
+    @Override
+    public List<Course> webSelectList(WebCourseQueryVO webCourseQueryVo) {
+
+        QueryWrapper<Course> queryWrapper = new QueryWrapper<>();
+
+        //查询已发布的课程
+        queryWrapper.eq("status", Course.COURSE_NORMAL);
+
+        if(!StringUtils.isEmpty(webCourseQueryVo.getSubjectParentId())){
+            queryWrapper.eq("subject_parent_id", webCourseQueryVo.getSubjectParentId());
+        }
+
+        if (!StringUtils.isEmpty(webCourseQueryVo.getSubjectId())) {
+            queryWrapper.eq("subject_id", webCourseQueryVo.getSubjectId());
+        }
+
+        if (!StringUtils.isEmpty(webCourseQueryVo.getBuyCountSort())) {
+            queryWrapper.orderByDesc("buy_count");
+        }
+
+        if (!StringUtils.isEmpty(webCourseQueryVo.getGmtCreateSort())) {
+            queryWrapper.orderByDesc("gmt_create");
+        }
+
+        if (!StringUtils.isEmpty(webCourseQueryVo.getPriceSort())) {
+            if(webCourseQueryVo.getType() == null || webCourseQueryVo.getType() == 1){
+                queryWrapper.orderByAsc("price");
+            }else{
+                queryWrapper.orderByDesc("price");
+            }
+        }
+
+        return baseMapper.selectList(queryWrapper);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public WebCourseVO selectWebCourseVoById(String id) {
+        Course course = baseMapper.selectById(id);
+        //更新浏览数
+        course.setViewCount(course.getViewCount() + 1);
+        // baseMapper.updateById(course);
+        courseMapper.updateViewCount(course);
+        //获取课程信息
+        return baseMapper.selectWebCourseVoById(id);
     }
 }

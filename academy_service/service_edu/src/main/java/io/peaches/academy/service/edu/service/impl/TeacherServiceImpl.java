@@ -5,15 +5,18 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.mysql.cj.util.StringUtils;
 import io.peaches.academy.common.base.result.R;
+import io.peaches.academy.service.edu.entity.Course;
 import io.peaches.academy.service.edu.entity.Teacher;
 import io.peaches.academy.service.edu.entity.vo.TeacherQueryVO;
 import io.peaches.academy.service.edu.feign.OssFileService;
+import io.peaches.academy.service.edu.mapper.CourseMapper;
 import io.peaches.academy.service.edu.mapper.TeacherMapper;
 import io.peaches.academy.service.edu.service.TeacherService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +33,9 @@ public class TeacherServiceImpl extends ServiceImpl<TeacherMapper, Teacher> impl
 
     @Autowired
     private OssFileService ossFileService;
+
+    @Autowired
+    private CourseMapper courseMapper;
 
     @Override
     public IPage<Teacher> selectPage(Page<Teacher> pageParam, TeacherQueryVO teacherQueryVO) {
@@ -91,5 +97,20 @@ public class TeacherServiceImpl extends ServiceImpl<TeacherMapper, Teacher> impl
             }
         }
         return false;
+    }
+
+    @Override
+    public Map<String, Object> selectTeacherInfoById(String id) {
+        Teacher teacher = baseMapper.selectById(id);
+
+        QueryWrapper<Course> courseQueryWrapper = new QueryWrapper<>();
+        courseQueryWrapper.eq("teacher_id", id);
+        List<Course> courseList = courseMapper.selectList(courseQueryWrapper);
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("teacher", teacher);
+        map.put("courseList", courseList);
+
+        return map;
     }
 }

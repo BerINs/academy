@@ -2,6 +2,9 @@ package io.peaches.academy.service.edu.service;
 
 import io.peaches.academy.service.edu.entity.Chapter;
 import com.baomidou.mybatisplus.extension.service.IService;
+import io.peaches.academy.service.edu.entity.vo.ChapterVO;
+
+import java.util.List;
 
 /**
  * <p>
@@ -13,4 +16,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface ChapterService extends IService<Chapter> {
 
+    boolean removeChapterById(String id);
+
+    List<ChapterVO> nestedList(String courseId);
 }
